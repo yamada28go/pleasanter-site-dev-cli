@@ -169,6 +169,7 @@ export async function writeBackup(args: {
   const backupDir = path.resolve(args.backupDir ?? "backups");
   await mkdir(backupDir, { recursive: true });
 
+  // Avoid ':' in filenames so the backup path is portable across environments.
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const outputPath =
     args.outPath !== undefined
@@ -196,6 +197,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
   const positional: string[] = [];
   const flags = new Map<string, string | boolean>();
 
+  // Support both --flag value and --flag=value with bare flags treated as boolean.
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
     if (!token) {
@@ -294,6 +296,7 @@ const isEntrypoint =
   import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (isEntrypoint) {
+  // Keep the module importable in tests while still behaving as a CLI entrypoint.
   main().catch((error: unknown) => {
     const errorObject =
       error instanceof Error ? error : new Error(String(error));

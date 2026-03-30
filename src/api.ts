@@ -122,6 +122,7 @@ export class PleasanterClient {
       );
     }
 
+    // Pleasanter returns JSON even for success responses with nested payloads.
     const parsed = text ? (JSON.parse(text) as T) : ({} as T);
     return parsed;
   }

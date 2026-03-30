@@ -1,5 +1,6 @@
 export type JsonObject = Record<string, unknown>;
 
+// JSON config file accepted by the CLI before it is normalized for the API.
 export interface ScriptInput {
   Id: number;
   Title?: string;
@@ -51,6 +52,7 @@ export interface SiteUpdateConfig {
   serverScripts?: ServerScriptInput[];
 }
 
+// Subset of the getsite response used by this CLI plus passthrough fields.
 export interface PleasanterSiteData {
   TenantId: number;
   SiteId: number;

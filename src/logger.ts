@@ -58,6 +58,7 @@ export function createLogger(options: LoggerOptions = {}): Logger {
       log("error", message, fields);
     },
     child(childContext) {
+      // Preserve log settings while narrowing the context for nested operations.
       const nextContext = context ? `${context}:${childContext}` : childContext;
       return createLogger({
         level,
@@ -114,6 +115,7 @@ function formatFields(fields: Record<string, unknown> | undefined): string {
 }
 
 function formatValue(value: unknown): string {
+  // Errors are expanded explicitly so the message and stack are visible in one line.
   if (value instanceof Error) {
     return JSON.stringify({
       name: value.name,

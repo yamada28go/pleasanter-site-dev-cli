@@ -14,6 +14,7 @@ export async function loadUpdateConfig(
   logger: Logger = createLogger({ context: "config" }),
 ): Promise<ResolvedSiteUpdateConfig> {
   const absoluteConfigPath = path.resolve(configPath);
+  // BodyFile paths are resolved relative to the config file location.
   const configDirectory = path.dirname(absoluteConfigPath);
   logger.info("Loading update config", {
     configPath: absoluteConfigPath,

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -39,7 +39,7 @@ export async function main(): Promise<void> {
 }
 
 async function runBackup(parsed: ParsedArgs, logger: Logger): Promise<void> {
-  const options = readCommonOptions(parsed);
+  const options = await readCommonOptions(parsed);
   logger.info("Starting backup command", {
     siteId: options.siteId,
     baseUrl: options.baseUrl,
@@ -63,7 +63,7 @@ async function runBackup(parsed: ParsedArgs, logger: Logger): Promise<void> {
 }
 
 async function runPush(parsed: ParsedArgs, logger: Logger): Promise<void> {
-  const options = readCommonOptions(parsed);
+  const options = await readCommonOptions(parsed);
   const configPath = requireStringFlag(parsed, "config");
   logger.info("Starting push command", {
     siteId: options.siteId,
@@ -121,11 +121,10 @@ async function runPush(parsed: ParsedArgs, logger: Logger): Promise<void> {
   });
 }
 
-export function readCommonOptions(parsed: ParsedArgs) {
+export async function readCommonOptions(parsed: ParsedArgs) {
   const baseUrl =
     getStringFlag(parsed, "base-url") ?? process.env.PLEASANTER_BASE_URL;
-  const apiKey =
-    getStringFlag(parsed, "api-key") ?? process.env.PLEASANTER_API_KEY;
+  const apiKey = await resolveApiKey(parsed);
   const siteIdRaw =
     getStringFlag(parsed, "site-id") ?? process.env.PLEASANTER_SITE_ID;
   const apiVersionRaw =
@@ -157,6 +156,23 @@ export function readCommonOptions(parsed: ParsedArgs) {
     siteId,
     apiVersion,
   };
+}
+
+async function resolveApiKey(parsed: ParsedArgs): Promise<string | undefined> {
+  const inlineApiKey = getStringFlag(parsed, "api-key");
+  if (inlineApiKey) {
+    return inlineApiKey;
+  }
+
+  const apiKeyFile =
+    getStringFlag(parsed, "api-key-file") ??
+    process.env.PLEASANTER_API_KEY_FILE;
+  if (apiKeyFile) {
+    const contents = await readFile(path.resolve(apiKeyFile), "utf8");
+    return contents.trim();
+  }
+
+  return process.env.PLEASANTER_API_KEY;
 }
 
 export async function writeBackup(args: {
@@ -262,14 +278,15 @@ export function printHelp(): void {
   process.stdout.write(`pleasanter-site-dev
 
 Usage:
-  pleasanter-site-dev backup --base-url <url> --site-id <id> --api-key <key> [--out <file>] [--backup-dir <dir>]
-  pleasanter-site-dev push --base-url <url> --site-id <id> --api-key <key> --config <file> [--backup-dir <dir>] [--skip-backup] [--dry-run]
+  pleasanter-site-dev backup --base-url <url> --site-id <id> [--api-key <key> | --api-key-file <file>] [--out <file>] [--backup-dir <dir>]
+  pleasanter-site-dev push --base-url <url> --site-id <id> [--api-key <key> | --api-key-file <file>] --config <file> [--backup-dir <dir>] [--skip-backup] [--dry-run]
   pleasanter-site-dev ... [--log-level <debug|info|warn|error|silent>] [--verbose]
 
 Environment variables:
   PLEASANTER_BASE_URL
   PLEASANTER_SITE_ID
   PLEASANTER_API_KEY
+  PLEASANTER_API_KEY_FILE
   PLEASANTER_API_VERSION
   PLEASANTER_LOG_LEVEL
 

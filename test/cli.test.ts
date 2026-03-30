@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -24,11 +24,12 @@ test("parseArgs handles positional arguments, equals syntax, and boolean flags",
   assert.equal(parsed.flags.get("site-id"), "123");
 });
 
-test("readCommonOptions reads required values from flags and environment variables", () => {
+test("readCommonOptions reads required values from flags and environment variables", async () => {
   const previousEnv = {
     PLEASANTER_BASE_URL: process.env.PLEASANTER_BASE_URL,
     PLEASANTER_SITE_ID: process.env.PLEASANTER_SITE_ID,
     PLEASANTER_API_KEY: process.env.PLEASANTER_API_KEY,
+    PLEASANTER_API_KEY_FILE: process.env.PLEASANTER_API_KEY_FILE,
     PLEASANTER_API_VERSION: process.env.PLEASANTER_API_VERSION,
   };
 
@@ -38,7 +39,7 @@ test("readCommonOptions reads required values from flags and environment variabl
   process.env.PLEASANTER_API_VERSION = "1.2";
 
   try {
-    const options = readCommonOptions(
+    const options = await readCommonOptions(
       parseArgs(["backup", "--api-key", "flag-key"]),
     );
 
@@ -53,20 +54,75 @@ test("readCommonOptions reads required values from flags and environment variabl
   }
 });
 
-test("readCommonOptions rejects invalid site ids", () => {
-  assert.throws(
-    () =>
-      readCommonOptions(
-        parseArgs([
-          "backup",
-          "--base-url",
-          "https://example.com",
-          "--api-key",
-          "secret",
-          "--site-id",
-          "0",
-        ]),
-      ),
+test("readCommonOptions reads api key from --api-key-file", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "pleasanter-api-key-"));
+  const apiKeyPath = path.join(tempDir, "api-key.txt");
+  const previousEnv = {
+    PLEASANTER_BASE_URL: process.env.PLEASANTER_BASE_URL,
+    PLEASANTER_SITE_ID: process.env.PLEASANTER_SITE_ID,
+    PLEASANTER_API_KEY: process.env.PLEASANTER_API_KEY,
+    PLEASANTER_API_KEY_FILE: process.env.PLEASANTER_API_KEY_FILE,
+    PLEASANTER_API_VERSION: process.env.PLEASANTER_API_VERSION,
+  };
+
+  process.env.PLEASANTER_BASE_URL = "https://example.com";
+  process.env.PLEASANTER_SITE_ID = "456";
+  process.env.PLEASANTER_API_KEY = "env-key";
+
+  try {
+    await writeFile(apiKeyPath, "file-key\n", "utf8");
+
+    const options = await readCommonOptions(
+      parseArgs(["backup", "--api-key-file", apiKeyPath]),
+    );
+
+    assert.equal(options.apiKey, "file-key");
+  } finally {
+    restoreEnv(previousEnv);
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("readCommonOptions reads api key from PLEASANTER_API_KEY_FILE", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "pleasanter-api-key-"));
+  const apiKeyPath = path.join(tempDir, "api-key.txt");
+  const previousEnv = {
+    PLEASANTER_BASE_URL: process.env.PLEASANTER_BASE_URL,
+    PLEASANTER_SITE_ID: process.env.PLEASANTER_SITE_ID,
+    PLEASANTER_API_KEY: process.env.PLEASANTER_API_KEY,
+    PLEASANTER_API_KEY_FILE: process.env.PLEASANTER_API_KEY_FILE,
+    PLEASANTER_API_VERSION: process.env.PLEASANTER_API_VERSION,
+  };
+
+  process.env.PLEASANTER_BASE_URL = "https://example.com";
+  process.env.PLEASANTER_SITE_ID = "456";
+  process.env.PLEASANTER_API_KEY_FILE = apiKeyPath;
+
+  try {
+    await writeFile(apiKeyPath, "file-env-key\n", "utf8");
+
+    const options = await readCommonOptions(parseArgs(["backup"]));
+
+    assert.equal(options.apiKey, "file-env-key");
+  } finally {
+    restoreEnv(previousEnv);
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("readCommonOptions rejects invalid site ids", async () => {
+  await assert.rejects(
+    readCommonOptions(
+      parseArgs([
+        "backup",
+        "--base-url",
+        "https://example.com",
+        "--api-key",
+        "secret",
+        "--site-id",
+        "0",
+      ]),
+    ),
     /Invalid site id: 0/,
   );
 });

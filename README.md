@@ -40,7 +40,7 @@ node dist/cli.js help
 pleasanter-site-dev backup \
   --base-url https://example.com \
   --site-id 12345 \
-  --api-key xxxxx
+  --api-key-file ~/.config/pleasanter/api-key.txt
 ```
 
 出力先を固定したい場合:
@@ -49,7 +49,7 @@ pleasanter-site-dev backup \
 pleasanter-site-dev backup \
   --base-url https://example.com \
   --site-id 12345 \
-  --api-key xxxxx \
+  --api-key-file ~/.config/pleasanter/api-key.txt \
   --out ./backups/site-settings.json
 ```
 
@@ -61,7 +61,7 @@ pleasanter-site-dev backup \
 pleasanter-site-dev push \
   --base-url https://example.com \
   --site-id 12345 \
-  --api-key xxxxx \
+  --api-key-file ~/.config/pleasanter/api-key.txt \
   --config ./examples/site-settings.config.json
 ```
 
@@ -71,7 +71,7 @@ pleasanter-site-dev push \
 pleasanter-site-dev push \
   --base-url https://example.com \
   --site-id 12345 \
-  --api-key xxxxx \
+  --api-key-file ~/.config/pleasanter/api-key.txt \
   --config ./examples/site-settings.config.json \
   --skip-backup
 ```
@@ -82,9 +82,34 @@ API に送る JSON を確認だけしたい場合:
 pleasanter-site-dev push \
   --base-url https://example.com \
   --site-id 12345 \
-  --api-key xxxxx \
+  --api-key-file ~/.config/pleasanter/api-key.txt \
   --config ./examples/site-settings.config.json \
   --dry-run
+```
+
+## APIキーの渡し方
+
+`package.json` の script や CI から呼び出す場合は、`--api-key` で値を直接渡すよりも、環境変数または `--api-key-file` / `PLEASANTER_API_KEY_FILE` を使う方が安全です。
+
+- 推奨: `PLEASANTER_API_KEY`
+- 推奨: `PLEASANTER_API_KEY_FILE`
+- 互換用: `--api-key`
+
+`--api-key-file` と `PLEASANTER_API_KEY_FILE` は、APIキーだけを書いたテキストファイルを読み込みます。末尾改行は自動で取り除きます。
+
+```bash
+export PLEASANTER_API_KEY_FILE=~/.config/pleasanter/api-key.txt
+pleasanter-site-dev backup --base-url https://example.com --site-id 12345
+```
+
+`package.json` では、秘密値そのものを埋め込まずにコマンドだけを定義してください。
+
+```json
+{
+  "scripts": {
+    "pleasanter:push": "pleasanter-site-dev push --base-url https://example.com --site-id 12345 --config ./examples/site-settings.config.json"
+  }
+}
 ```
 
 ## 設定ファイル
@@ -147,6 +172,7 @@ pleasanter-site-dev push \
 export PLEASANTER_BASE_URL=https://example.com
 export PLEASANTER_SITE_ID=12345
 export PLEASANTER_API_KEY=xxxxx
+export PLEASANTER_API_KEY_FILE=~/.config/pleasanter/api-key.txt
 export PLEASANTER_API_VERSION=1.1
 ```
 

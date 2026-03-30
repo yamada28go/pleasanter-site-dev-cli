@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 
 import { PleasanterClient } from "./api.js";
 import { loadUpdateConfig, summarizeConfig } from "./config.js";
+import { createLogger, resolveLogLevel, type Logger } from "./logger.js";
 import type { BackupDocument, PleasanterSiteData } from "./types.js";
 
 type CommandName = "backup" | "push" | "help";
@@ -17,13 +18,19 @@ export interface ParsedArgs {
 export async function main(): Promise<void> {
   const parsed = parseArgs(process.argv.slice(2));
   const command = (parsed._[0] ?? "help") as CommandName;
+  const logger = createCliLogger(parsed);
+
+  logger.debug("Parsed command line arguments", {
+    command,
+    flags: Object.fromEntries(parsed.flags),
+  });
 
   switch (command) {
     case "backup":
-      await runBackup(parsed);
+      await runBackup(parsed, logger.child("backup"));
       return;
     case "push":
-      await runPush(parsed);
+      await runPush(parsed, logger.child("push"));
       return;
     case "help":
     default:
@@ -31,9 +38,16 @@ export async function main(): Promise<void> {
   }
 }
 
-async function runBackup(parsed: ParsedArgs): Promise<void> {
+async function runBackup(parsed: ParsedArgs, logger: Logger): Promise<void> {
   const options = readCommonOptions(parsed);
-  const client = new PleasanterClient(options);
+  logger.info("Starting backup command", {
+    siteId: options.siteId,
+    baseUrl: options.baseUrl,
+  });
+  const client = new PleasanterClient({
+    ...options,
+    logger: logger.child("api"),
+  });
   const site = await client.getSite();
   const backupPath = await writeBackup({
     baseUrl: options.baseUrl,
@@ -43,25 +57,45 @@ async function runBackup(parsed: ParsedArgs): Promise<void> {
     backupDir: getStringFlag(parsed, "backup-dir"),
   });
 
-  console.log(`Backup created: ${backupPath}`);
+  logger.info("Backup created", {
+    backupPath,
+  });
 }
 
-async function runPush(parsed: ParsedArgs): Promise<void> {
+async function runPush(parsed: ParsedArgs, logger: Logger): Promise<void> {
   const options = readCommonOptions(parsed);
   const configPath = requireStringFlag(parsed, "config");
-  const updateConfig = await loadUpdateConfig(configPath);
-  console.log(`Loaded config: ${summarizeConfig(updateConfig)}`);
+  logger.info("Starting push command", {
+    siteId: options.siteId,
+    baseUrl: options.baseUrl,
+    configPath: path.resolve(configPath),
+  });
+  const updateConfig = await loadUpdateConfig(
+    configPath,
+    logger.child("config"),
+  );
+  logger.info("Loaded update config", {
+    configPath: path.resolve(configPath),
+    summary: summarizeConfig(updateConfig),
+  });
 
   if (getBooleanFlag(parsed, "dry-run")) {
-    console.log(JSON.stringify(updateConfig, null, 2));
+    logger.info("Skipping API update for dry run");
+    process.stdout.write(`${JSON.stringify(updateConfig, null, 2)}\n`);
     return;
   }
 
-  const client = new PleasanterClient(options);
+  const client = new PleasanterClient({
+    ...options,
+    logger: logger.child("api"),
+  });
   const site = await client.getSite();
   const skipBackup = getBooleanFlag(parsed, "skip-backup");
   let backupPath: string | undefined;
   if (!skipBackup) {
+    logger.info("Creating backup before update", {
+      siteId: options.siteId,
+    });
     backupPath = await writeBackup({
       baseUrl: options.baseUrl,
       siteId: options.siteId,
@@ -69,15 +103,22 @@ async function runPush(parsed: ParsedArgs): Promise<void> {
       outPath: undefined,
       backupDir: getStringFlag(parsed, "backup-dir"),
     });
+  } else {
+    logger.warn("Skipping backup before update", {
+      siteId: options.siteId,
+    });
   }
 
   const response = await client.updateSiteSettings(updateConfig);
   if (backupPath) {
-    console.log(`Backup created: ${backupPath}`);
+    logger.info("Backup created", {
+      backupPath,
+    });
   }
-  console.log(
-    `Update completed: ${response.StatusCode ?? 200} ${response.Message ?? ""}`.trim(),
-  );
+  logger.info("Update completed", {
+    statusCode: response.StatusCode ?? 200,
+    message: response.Message ?? "",
+  });
 }
 
 export function readCommonOptions(parsed: ParsedArgs) {
@@ -216,21 +257,36 @@ export function getBooleanFlag(parsed: ParsedArgs, name: string): boolean {
 }
 
 export function printHelp(): void {
-  console.log(`pleasanter-site-dev
+  process.stdout.write(`pleasanter-site-dev
 
 Usage:
   pleasanter-site-dev backup --base-url <url> --site-id <id> --api-key <key> [--out <file>] [--backup-dir <dir>]
   pleasanter-site-dev push --base-url <url> --site-id <id> --api-key <key> --config <file> [--backup-dir <dir>] [--skip-backup] [--dry-run]
+  pleasanter-site-dev ... [--log-level <debug|info|warn|error|silent>] [--verbose]
 
 Environment variables:
   PLEASANTER_BASE_URL
   PLEASANTER_SITE_ID
   PLEASANTER_API_KEY
   PLEASANTER_API_VERSION
+  PLEASANTER_LOG_LEVEL
 
 Config example:
   See examples/site-settings.config.json
 `);
+}
+
+export function createCliLogger(parsed: ParsedArgs): Logger {
+  const verbose = getBooleanFlag(parsed, "verbose");
+  const configuredLevel =
+    getStringFlag(parsed, "log-level") ?? process.env.PLEASANTER_LOG_LEVEL;
+  const level = verbose
+    ? "debug"
+    : (resolveLogLevel(configuredLevel) ?? "info");
+  return createLogger({
+    level,
+    context: "cli",
+  });
 }
 
 const isEntrypoint =
@@ -239,8 +295,15 @@ const isEntrypoint =
 
 if (isEntrypoint) {
   main().catch((error: unknown) => {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(message);
+    const errorObject =
+      error instanceof Error ? error : new Error(String(error));
+    const logger = createLogger({
+      level: "error",
+      context: "cli",
+    });
+    logger.error("Command failed", {
+      error: errorObject,
+    });
     process.exitCode = 1;
   });
 }

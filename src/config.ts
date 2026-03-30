@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
+import { createLogger, type Logger } from "./logger.js";
 import type { JsonObject, SiteUpdateConfig } from "./types.js";
 
 export interface ResolvedSiteUpdateConfig {
@@ -10,9 +11,13 @@ export interface ResolvedSiteUpdateConfig {
 
 export async function loadUpdateConfig(
   configPath: string,
+  logger: Logger = createLogger({ context: "config" }),
 ): Promise<ResolvedSiteUpdateConfig> {
   const absoluteConfigPath = path.resolve(configPath);
   const configDirectory = path.dirname(absoluteConfigPath);
+  logger.info("Loading update config", {
+    configPath: absoluteConfigPath,
+  });
   const raw = await readFile(absoluteConfigPath, "utf8");
   const parsed = JSON.parse(raw) as SiteUpdateConfig;
 
@@ -41,6 +46,12 @@ export async function loadUpdateConfig(
       "Config must include at least one entry in scripts or serverScripts.",
     );
   }
+
+  logger.info("Loaded update config", {
+    configPath: absoluteConfigPath,
+    scriptCount: scripts?.length ?? 0,
+    serverScriptCount: serverScripts?.length ?? 0,
+  });
 
   return {
     Scripts: scripts,

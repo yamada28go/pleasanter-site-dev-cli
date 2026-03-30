@@ -81,7 +81,6 @@ export class PleasanterClient {
     });
 
     const text = await response.text();
-    const parsed = text ? (JSON.parse(text) as T) : ({} as T);
 
     if (!response.ok) {
       throw new Error(
@@ -89,6 +88,7 @@ export class PleasanterClient {
       );
     }
 
+    const parsed = text ? (JSON.parse(text) as T) : ({} as T);
     return parsed;
   }
 }

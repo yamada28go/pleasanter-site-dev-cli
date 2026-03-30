@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { PleasanterClient } from "./api.js";
 import { loadUpdateConfig, summarizeConfig } from "./config.js";
@@ -8,12 +9,12 @@ import type { BackupDocument, PleasanterSiteData } from "./types.js";
 
 type CommandName = "backup" | "push" | "help";
 
-interface ParsedArgs {
+export interface ParsedArgs {
   _: string[];
   flags: Map<string, string | boolean>;
 }
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   const parsed = parseArgs(process.argv.slice(2));
   const command = (parsed._[0] ?? "help") as CommandName;
 
@@ -79,7 +80,7 @@ async function runPush(parsed: ParsedArgs): Promise<void> {
   );
 }
 
-function readCommonOptions(parsed: ParsedArgs) {
+export function readCommonOptions(parsed: ParsedArgs) {
   const baseUrl =
     getStringFlag(parsed, "base-url") ?? process.env.PLEASANTER_BASE_URL;
   const apiKey =
@@ -117,7 +118,7 @@ function readCommonOptions(parsed: ParsedArgs) {
   };
 }
 
-async function writeBackup(args: {
+export async function writeBackup(args: {
   baseUrl: string;
   siteId: number;
   site: PleasanterSiteData;
@@ -150,7 +151,7 @@ async function writeBackup(args: {
   return outputPath;
 }
 
-function parseArgs(argv: string[]): ParsedArgs {
+export function parseArgs(argv: string[]): ParsedArgs {
   const positional: string[] = [];
   const flags = new Map<string, string | boolean>();
 
@@ -187,7 +188,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   return { _: positional, flags };
 }
 
-function requireStringFlag(parsed: ParsedArgs, name: string): string {
+export function requireStringFlag(parsed: ParsedArgs, name: string): string {
   const value = getStringFlag(parsed, name);
   if (!value) {
     throw new Error(`--${name} is required.`);
@@ -195,12 +196,15 @@ function requireStringFlag(parsed: ParsedArgs, name: string): string {
   return value;
 }
 
-function getStringFlag(parsed: ParsedArgs, name: string): string | undefined {
+export function getStringFlag(
+  parsed: ParsedArgs,
+  name: string,
+): string | undefined {
   const value = parsed.flags.get(name);
   return typeof value === "string" ? value : undefined;
 }
 
-function getBooleanFlag(parsed: ParsedArgs, name: string): boolean {
+export function getBooleanFlag(parsed: ParsedArgs, name: string): boolean {
   const value = parsed.flags.get(name);
   if (typeof value === "boolean") {
     return value;
@@ -211,7 +215,7 @@ function getBooleanFlag(parsed: ParsedArgs, name: string): boolean {
   return false;
 }
 
-function printHelp(): void {
+export function printHelp(): void {
   console.log(`pleasanter-site-dev
 
 Usage:
@@ -229,8 +233,14 @@ Config example:
 `);
 }
 
-main().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(message);
-  process.exitCode = 1;
-});
+const isEntrypoint =
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (isEntrypoint) {
+  main().catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(message);
+    process.exitCode = 1;
+  });
+}

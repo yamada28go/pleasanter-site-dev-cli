@@ -1,0 +1,9 @@
+node_modules/
+
+dist/
+
+backups/*
+!backups/.gitkeep
+
+.DS_Store
+*.log

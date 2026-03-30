@@ -1,0 +1,19 @@
+{
+  "scripts": [
+    {
+      "Id": 1,
+      "Title": "sample script",
+      "BodyFile": "./scripts/sample-script.js",
+      "ScriptAll": true
+    }
+  ],
+  "serverScripts": [
+    {
+      "Id": 9,
+      "Title": "sample server script",
+      "Name": "SampleServerScript9",
+      "BodyFile": "./server-scripts/sample-server-script.csx",
+      "ServerScriptWhenloadingSiteSettings": true
+    }
+  ]
+}

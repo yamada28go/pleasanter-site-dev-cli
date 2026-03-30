@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { parseArgs, readCommonOptions, writeBackup } from "../dist/cli.js";
+import { parseArgs, readCommonOptions, writeBackup } from "../src/cli.js";
 
 test("parseArgs handles positional arguments, equals syntax, and boolean flags", () => {
   const parsed = parseArgs([
@@ -93,7 +93,13 @@ test("writeBackup writes site data and extracted scripts to the requested path",
 
     assert.equal(writtenPath, outputPath);
 
-    const content = JSON.parse(await readFile(outputPath, "utf8"));
+    const content = JSON.parse(await readFile(outputPath, "utf8")) as {
+      meta: { baseUrl: string; siteId: number };
+      extracted: {
+        scripts: Array<{ Id: number; Title: string }>;
+        serverScripts: Array<{ Id: number; Title: string }>;
+      };
+    };
     assert.equal(content.meta.baseUrl, "https://example.com");
     assert.equal(content.meta.siteId, 123);
     assert.deepEqual(content.extracted.scripts, [{ Id: 1, Title: "client" }]);
@@ -105,7 +111,7 @@ test("writeBackup writes site data and extracted scripts to the requested path",
   }
 });
 
-function restoreEnv(previousEnv) {
+function restoreEnv(previousEnv: Record<string, string | undefined>): void {
   for (const [key, value] of Object.entries(previousEnv)) {
     if (value === undefined) {
       delete process.env[key];

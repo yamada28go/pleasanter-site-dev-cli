@@ -1,16 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { PleasanterClient } from "../dist/api.js";
+import { PleasanterClient } from "../src/api.js";
 
 test("PleasanterClient.getSite posts to the expected endpoint and returns Response.Data", async () => {
   const originalFetch = globalThis.fetch;
-  /** @type {{ url?: string, init?: RequestInit }} */
-  const call = {};
+  let call: { url?: string; init?: RequestInit } = {};
 
   globalThis.fetch = async (url, init) => {
-    call.url = String(url);
-    call.init = init;
+    call = { url: String(url), init };
     return new Response(
       JSON.stringify({
         Response: {
@@ -41,7 +39,7 @@ test("PleasanterClient.getSite posts to the expected endpoint and returns Respon
 
     assert.equal(call.url, "https://example.com/api/items/123/getsite");
     assert.equal(call.init?.method, "POST");
-    assert.deepEqual(JSON.parse(call.init?.body ?? "{}"), {
+    assert.deepEqual(JSON.parse(String(call.init?.body ?? "{}")), {
       ApiVersion: 1.1,
       ApiKey: "secret",
     });

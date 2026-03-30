@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { loadUpdateConfig, summarizeConfig } from "../dist/config.js";
+import { loadUpdateConfig, summarizeConfig } from "../src/config.js";
 
 test("loadUpdateConfig resolves BodyFile relative to the config file", async () => {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "pleasanter-config-"));

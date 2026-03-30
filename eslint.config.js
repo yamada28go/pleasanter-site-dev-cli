@@ -23,17 +23,6 @@ export default [
     },
   },
   {
-    files: ["test/**/*.mjs", "test/**/*.js"],
-    languageOptions: {
-      ecmaVersion: "latest",
-      sourceType: "module",
-      globals: {
-        ...globals.node,
-        ...globals.browser,
-      },
-    },
-  },
-  {
     files: ["src/**/*.ts"],
     languageOptions: {
       parser: tsParser,
@@ -55,7 +44,34 @@ export default [
           varsIgnorePattern: "^_",
         },
       ],
+      "no-undef": "off",
       "no-console": "off",
+    },
+  },
+  {
+    files: ["test/**/*.ts"],
+    languageOptions: {
+      parser: tsParser,
+      ecmaVersion: "latest",
+      sourceType: "module",
+      globals: {
+        ...globals.node,
+        ...globals.browser,
+      },
+    },
+    plugins: {
+      "@typescript-eslint": tseslint,
+    },
+    rules: {
+      "@typescript-eslint/consistent-type-imports": "error",
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+        },
+      ],
+      "no-undef": "off",
     },
   },
   eslintConfigPrettier,

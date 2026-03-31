@@ -1,7 +1,8 @@
 #!/usr/bin/env node
+import { realpathSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { PleasanterClient } from "./api.js";
 import { loadUpdateConfig, summarizeConfig } from "./config.js";
@@ -308,9 +309,22 @@ export function createCliLogger(parsed: ParsedArgs): Logger {
   });
 }
 
-const isEntrypoint =
-  process.argv[1] !== undefined &&
-  import.meta.url === pathToFileURL(process.argv[1]).href;
+export function isCliEntrypoint(
+  argv1: string | undefined,
+  moduleUrl: string,
+): boolean {
+  if (!argv1) {
+    return false;
+  }
+
+  try {
+    return realpathSync(argv1) === realpathSync(fileURLToPath(moduleUrl));
+  } catch {
+    return pathToFileURL(argv1).href === moduleUrl;
+  }
+}
+
+const isEntrypoint = isCliEntrypoint(process.argv[1], import.meta.url);
 
 if (isEntrypoint) {
   // Keep the module importable in tests while still behaving as a CLI entrypoint.

@@ -53,6 +53,12 @@ pleasanter-site-dev backup \
   --out ./backups/site-settings.json
 ```
 
+共通オプションを 1 つの設定ファイルにまとめる場合:
+
+```bash
+pleasanter-site-dev backup --settings ./examples/cli-settings.json
+```
+
 ### 更新
 
 更新前に自動でバックアップを作成し、その後 `Scripts` / `ServerScripts` を更新します。
@@ -63,6 +69,12 @@ pleasanter-site-dev push \
   --site-id 12345 \
   --api-key-file ~/.config/pleasanter/api-key.txt \
   --config ./examples/site-settings.config.json
+```
+
+共通オプションを settings ファイルに寄せる場合:
+
+```bash
+pleasanter-site-dev push --settings ./examples/cli-settings.json
 ```
 
 バックアップを無効にする場合:
@@ -112,7 +124,37 @@ pleasanter-site-dev backup --base-url https://example.com --site-id 12345
 }
 ```
 
-## 設定ファイル
+## 実行設定ファイル
+
+CLI の共通オプションは `--settings` または `PLEASANTER_SETTINGS_FILE` で JSON から読み込めます。コマンドライン引数が最優先で、その次に settings ファイル、最後に環境変数を使います。
+
+```json
+{
+  "baseUrl": "https://example.com",
+  "siteId": 12345,
+  "apiKeyFile": "./secrets/api-key.txt",
+  "config": "./site-settings.config.json",
+  "backupDir": "./backups"
+}
+```
+
+使えるキー:
+
+- `baseUrl`
+- `siteId`
+- `apiKey`
+- `apiKeyFile`
+- `apiVersion`
+- `logLevel`
+- `backupDir`
+- `out`
+- `config`
+- `skipBackup`
+- `dryRun`
+
+`apiKeyFile`、`config`、`backupDir`、`out` の相対パスは settings ファイル基準で解決されます。
+
+## 更新設定ファイル
 
 設定ファイルは JSON です。`Body` を直接書くか、`BodyFile` で外部ファイルを参照できます。`BodyFile` の相対パスは設定ファイル基準で解決されます。
 
@@ -174,6 +216,7 @@ export PLEASANTER_SITE_ID=12345
 export PLEASANTER_API_KEY=xxxxx
 export PLEASANTER_API_KEY_FILE=~/.config/pleasanter/api-key.txt
 export PLEASANTER_API_VERSION=1.1
+export PLEASANTER_SETTINGS_FILE=./examples/cli-settings.json
 ```
 
 ## バックアップファイル

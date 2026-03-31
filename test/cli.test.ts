@@ -10,6 +10,7 @@ import {
   parseArgs,
   readCommonOptions,
   renderHelp,
+  resolveParsedArgs,
   writeBackup,
 } from "../src/cli.js";
 
@@ -113,6 +114,48 @@ test("readCommonOptions reads api key from PLEASANTER_API_KEY_FILE", async () =>
     assert.equal(options.apiKey, "file-env-key");
   } finally {
     restoreEnv(previousEnv);
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("resolveParsedArgs merges settings file defaults and preserves explicit flags", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "pleasanter-cli-"));
+
+  try {
+    await writeFile(
+      path.join(tempDir, "cli-settings.json"),
+      JSON.stringify({
+        baseUrl: "https://example.com",
+        siteId: 456,
+        apiKeyFile: "./api-key.txt",
+        config: "./site-settings.config.json",
+        dryRun: true,
+      }),
+      "utf8",
+    );
+
+    const parsed = await resolveParsedArgs(
+      parseArgs([
+        "push",
+        "--settings",
+        path.join(tempDir, "cli-settings.json"),
+        "--site-id",
+        "789",
+      ]),
+    );
+
+    assert.equal(parsed.flags.get("base-url"), "https://example.com");
+    assert.equal(parsed.flags.get("site-id"), "789");
+    assert.equal(parsed.flags.get("dry-run"), true);
+    assert.equal(
+      parsed.flags.get("api-key-file"),
+      path.join(tempDir, "api-key.txt"),
+    );
+    assert.equal(
+      parsed.flags.get("config"),
+      path.join(tempDir, "site-settings.config.json"),
+    );
+  } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
 });

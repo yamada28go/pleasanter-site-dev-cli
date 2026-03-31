@@ -1,0 +1,7 @@
+{
+  "baseUrl": "https://example.com",
+  "siteId": 12345,
+  "apiKeyFile": "./secrets/api-key.txt",
+  "config": "./site-settings.config.json",
+  "backupDir": "./backups"
+}

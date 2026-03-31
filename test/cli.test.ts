@@ -9,6 +9,7 @@ import {
   isCliEntrypoint,
   parseArgs,
   readCommonOptions,
+  renderHelp,
   writeBackup,
 } from "../src/cli.js";
 
@@ -158,6 +159,18 @@ test("isCliEntrypoint returns false for a different module", () => {
     ),
     false,
   );
+});
+
+test("renderHelp includes version and repository metadata", () => {
+  const help = renderHelp({
+    description: "Example CLI",
+    version: "9.9.9",
+    repositoryUrl: "https://github.com/example/repo",
+  });
+
+  assert.match(help, /Description:\n  Example CLI/);
+  assert.match(help, /Version:\n  9\.9\.9/);
+  assert.match(help, /Repository:\n  https:\/\/github\.com\/example\/repo/);
 });
 
 test("writeBackup writes site data and extracted scripts to the requested path", async () => {

@@ -2,11 +2,30 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { createLogger, type Logger } from "./logger.js";
-import type { JsonObject, SiteUpdateConfig } from "./types.js";
+import type {
+  CliSettingsConfig,
+  JsonObject,
+  SiteUpdateConfig,
+} from "./types.js";
 
 export interface ResolvedSiteUpdateConfig {
   Scripts?: JsonObject[];
   ServerScripts?: JsonObject[];
+}
+
+export interface ResolvedCliSettingsConfig {
+  baseUrl?: string;
+  siteId?: number;
+  apiKey?: string;
+  apiKeyFile?: string;
+  apiVersion?: number;
+  logLevel?: string;
+  backupDir?: string;
+  backupRetention?: number;
+  outputFile?: string;
+  config?: string;
+  skipBackup?: boolean;
+  dryRun?: boolean;
 }
 
 export async function loadUpdateConfig(
@@ -58,6 +77,115 @@ export async function loadUpdateConfig(
     Scripts: scripts,
     ServerScripts: serverScripts,
   };
+}
+
+export async function loadCliSettingsConfig(
+  configPath: string,
+  logger: Logger = createLogger({ context: "settings" }),
+): Promise<ResolvedCliSettingsConfig> {
+  const absoluteConfigPath = path.resolve(configPath);
+  const configDirectory = path.dirname(absoluteConfigPath);
+  logger.info("Loading CLI settings config", {
+    configPath: absoluteConfigPath,
+  });
+  const raw = await readFile(absoluteConfigPath, "utf8");
+  const parsed = JSON.parse(raw) as CliSettingsConfig;
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("CLI settings config must be a JSON object.");
+  }
+
+  const resolved: ResolvedCliSettingsConfig = {};
+
+  if (parsed.baseUrl !== undefined) {
+    if (typeof parsed.baseUrl !== "string") {
+      throw new Error("baseUrl must be a string.");
+    }
+    resolved.baseUrl = parsed.baseUrl;
+  }
+
+  if (parsed.siteId !== undefined) {
+    if (typeof parsed.siteId !== "number") {
+      throw new Error("siteId must be a number.");
+    }
+    resolved.siteId = parsed.siteId;
+  }
+
+  if (parsed.apiKey !== undefined) {
+    if (typeof parsed.apiKey !== "string") {
+      throw new Error("apiKey must be a string.");
+    }
+    resolved.apiKey = parsed.apiKey;
+  }
+
+  if (parsed.apiKeyFile !== undefined) {
+    if (typeof parsed.apiKeyFile !== "string") {
+      throw new Error("apiKeyFile must be a string.");
+    }
+    resolved.apiKeyFile = path.resolve(configDirectory, parsed.apiKeyFile);
+  }
+
+  if (parsed.apiVersion !== undefined) {
+    if (typeof parsed.apiVersion !== "number") {
+      throw new Error("apiVersion must be a number.");
+    }
+    resolved.apiVersion = parsed.apiVersion;
+  }
+
+  if (parsed.logLevel !== undefined) {
+    if (typeof parsed.logLevel !== "string") {
+      throw new Error("logLevel must be a string.");
+    }
+    resolved.logLevel = parsed.logLevel;
+  }
+
+  if (parsed.backupDir !== undefined) {
+    if (typeof parsed.backupDir !== "string") {
+      throw new Error("backupDir must be a string.");
+    }
+    resolved.backupDir = path.resolve(configDirectory, parsed.backupDir);
+  }
+
+  if (parsed.backupRetention !== undefined) {
+    if (typeof parsed.backupRetention !== "number") {
+      throw new Error("backupRetention must be a number.");
+    }
+    resolved.backupRetention = parsed.backupRetention;
+  }
+
+  if (parsed.outputFile !== undefined) {
+    if (typeof parsed.outputFile !== "string") {
+      throw new Error("outputFile must be a string.");
+    }
+    resolved.outputFile = path.resolve(configDirectory, parsed.outputFile);
+  }
+
+  if (parsed.config !== undefined) {
+    if (typeof parsed.config !== "string") {
+      throw new Error("config must be a string.");
+    }
+    resolved.config = path.resolve(configDirectory, parsed.config);
+  }
+
+  if (parsed.skipBackup !== undefined) {
+    if (typeof parsed.skipBackup !== "boolean") {
+      throw new Error("skipBackup must be a boolean.");
+    }
+    resolved.skipBackup = parsed.skipBackup;
+  }
+
+  if (parsed.dryRun !== undefined) {
+    if (typeof parsed.dryRun !== "boolean") {
+      throw new Error("dryRun must be a boolean.");
+    }
+    resolved.dryRun = parsed.dryRun;
+  }
+
+  logger.info("Loaded CLI settings config", {
+    configPath: absoluteConfigPath,
+  });
+
+  return resolved;
 }
 
 async function resolveBodyFile<

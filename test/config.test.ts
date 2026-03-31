@@ -4,7 +4,11 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { loadUpdateConfig, summarizeConfig } from "../src/config.js";
+import {
+  loadCliSettingsConfig,
+  loadUpdateConfig,
+  summarizeConfig,
+} from "../src/config.js";
 
 test("loadUpdateConfig resolves BodyFile relative to the config file", async () => {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "pleasanter-config-"));
@@ -85,6 +89,67 @@ test("loadUpdateConfig rejects an entry that specifies both Body and BodyFile", 
     await assert.rejects(
       loadUpdateConfig(path.join(tempDir, "config.json")),
       /scripts\[0\] cannot specify both Body and BodyFile\./,
+    );
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("loadCliSettingsConfig resolves relative paths from the settings file", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "pleasanter-settings-"));
+
+  try {
+    await writeFile(
+      path.join(tempDir, "cli-settings.json"),
+      JSON.stringify({
+        baseUrl: "https://example.com",
+        siteId: 123,
+        apiKeyFile: "./secrets/api-key.txt",
+        config: "./site-settings.config.json",
+        backupDir: "./backups",
+        backupRetention: 7,
+        outputFile: "./out/site.json",
+        skipBackup: true,
+        dryRun: true,
+      }),
+      "utf8",
+    );
+
+    const result = await loadCliSettingsConfig(
+      path.join(tempDir, "cli-settings.json"),
+    );
+
+    assert.deepEqual(result, {
+      baseUrl: "https://example.com",
+      siteId: 123,
+      apiKeyFile: path.join(tempDir, "secrets/api-key.txt"),
+      config: path.join(tempDir, "site-settings.config.json"),
+      backupDir: path.join(tempDir, "backups"),
+      backupRetention: 7,
+      outputFile: path.join(tempDir, "out/site.json"),
+      skipBackup: true,
+      dryRun: true,
+    });
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("loadCliSettingsConfig rejects invalid field types", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "pleasanter-settings-"));
+
+  try {
+    await writeFile(
+      path.join(tempDir, "cli-settings.json"),
+      JSON.stringify({
+        siteId: "123",
+      }),
+      "utf8",
+    );
+
+    await assert.rejects(
+      loadCliSettingsConfig(path.join(tempDir, "cli-settings.json")),
+      /siteId must be a number\./,
     );
   } finally {
     await rm(tempDir, { recursive: true, force: true });

@@ -52,6 +52,21 @@ export interface SiteUpdateConfig {
   serverScripts?: ServerScriptInput[];
 }
 
+export interface CliSettingsConfig {
+  baseUrl?: string;
+  siteId?: number;
+  apiKey?: string;
+  apiKeyFile?: string;
+  apiVersion?: number;
+  logLevel?: string;
+  backupDir?: string;
+  backupRetention?: number;
+  outputFile?: string;
+  config?: string;
+  skipBackup?: boolean;
+  dryRun?: boolean;
+}
+
 // Subset of the getsite response used by this CLI plus passthrough fields.
 export interface PleasanterSiteData {
   TenantId: number;

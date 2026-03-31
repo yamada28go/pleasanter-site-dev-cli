@@ -1,5 +1,5 @@
 {
-  "name": "pleasanter-site-dev-cli",
+  "name": "@yamada28go/pleasanter-site-dev-cli",
   "version": "0.1.0",
   "description": "CLI to back up and update Pleasanter site Scripts and ServerScripts.",
   "license": "MIT",
@@ -21,6 +21,7 @@
     "check": "tsc --noEmit -p tsconfig.json",
     "check:test": "tsc --noEmit -p tsconfig.test.json",
     "test": "npm run build && tsc -p tsconfig.test.json && node --test .test-dist/test/*.test.js",
+    "prepublishOnly": "npm run build && npm test",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
@@ -31,7 +32,15 @@
     "cli",
     "typescript"
   ],
-  "author": "",
+  "author": "yamada28go",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yamada28go/pleasanter-site-dev-cli.git"
+  },
+  "homepage": "https://github.com/yamada28go/pleasanter-site-dev-cli#readme",
+  "bugs": {
+    "url": "https://github.com/yamada28go/pleasanter-site-dev-cli/issues"
+  },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "@typescript-eslint/eslint-plugin": "^8.28.0",

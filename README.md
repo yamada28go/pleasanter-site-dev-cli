@@ -21,7 +21,7 @@ Pleasanter のマニュアル:
 ## インストール
 
 ```bash
-npm install pleasanter-site-dev-cli
+npm install @yamada28go/pleasanter-site-dev-cli
 ```
 
 ローカル開発時:

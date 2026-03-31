@@ -137,6 +137,7 @@ test("resolveParsedArgs merges settings file defaults and preserves explicit fla
         siteId: 456,
         apiKeyFile: "./api-key.txt",
         config: "./site-settings.config.json",
+        outputFile: "./out/site.json",
         backupRetention: 7,
         dryRun: true,
       }),
@@ -163,6 +164,10 @@ test("resolveParsedArgs merges settings file defaults and preserves explicit fla
     assert.equal(
       parsed.flags.get("config"),
       path.join(tempDir, "site-settings.config.json"),
+    );
+    assert.equal(
+      parsed.flags.get("output-file"),
+      path.join(tempDir, "out/site.json"),
     );
     assert.equal(parsed.flags.get("backup-retention"), "7");
   } finally {

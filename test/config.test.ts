@@ -108,7 +108,7 @@ test("loadCliSettingsConfig resolves relative paths from the settings file", asy
         config: "./site-settings.config.json",
         backupDir: "./backups",
         backupRetention: 7,
-        out: "./out/site.json",
+        outputFile: "./out/site.json",
         skipBackup: true,
         dryRun: true,
       }),
@@ -126,7 +126,7 @@ test("loadCliSettingsConfig resolves relative paths from the settings file", asy
       config: path.join(tempDir, "site-settings.config.json"),
       backupDir: path.join(tempDir, "backups"),
       backupRetention: 7,
-      out: path.join(tempDir, "out/site.json"),
+      outputFile: path.join(tempDir, "out/site.json"),
       skipBackup: true,
       dryRun: true,
     });

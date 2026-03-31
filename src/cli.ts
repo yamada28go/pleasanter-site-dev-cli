@@ -68,7 +68,7 @@ async function runBackup(parsed: ParsedArgs, logger: Logger): Promise<void> {
     baseUrl: options.baseUrl,
     siteId: options.siteId,
     site,
-    outPath: getOptionalStringSetting(parsed, "out"),
+    outPath: getOptionalStringSetting(parsed, "output-file"),
     backupDir: getOptionalStringSetting(parsed, "backup-dir"),
   });
 
@@ -334,7 +334,7 @@ Repository:
   ${metadata.repositoryUrl ?? "N/A"}
 
 Usage:
-  pleasanter-site-dev backup [--settings <file>] --base-url <url> --site-id <id> [--api-key <key> | --api-key-file <file>] [--out <file>] [--backup-dir <dir>]
+  pleasanter-site-dev backup [--settings <file>] --base-url <url> --site-id <id> [--api-key <key> | --api-key-file <file>] [--output-file <file>] [--backup-dir <dir>]
   pleasanter-site-dev push [--settings <file>] --base-url <url> --site-id <id> [--api-key <key> | --api-key-file <file>] --config <file> [--backup-dir <dir>] [--backup-retention <count>] [--skip-backup] [--dry-run]
   pleasanter-site-dev ... [--log-level <debug|info|warn|error|silent>] [--verbose]
 
@@ -493,7 +493,7 @@ function applySettingsDefaults(
       ? String(settings.backupRetention)
       : undefined,
   );
-  setStringDefault(flags, "out", settings.out);
+  setStringDefault(flags, "output-file", settings.outputFile);
   setStringDefault(flags, "config", settings.config);
   setBooleanDefault(flags, "skip-backup", settings.skipBackup);
   setBooleanDefault(flags, "dry-run", settings.dryRun);

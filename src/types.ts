@@ -61,7 +61,7 @@ export interface CliSettingsConfig {
   logLevel?: string;
   backupDir?: string;
   backupRetention?: number;
-  out?: string;
+  outputFile?: string;
   config?: string;
   skipBackup?: boolean;
   dryRun?: boolean;

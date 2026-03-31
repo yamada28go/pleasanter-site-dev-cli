@@ -18,19 +18,21 @@ Pleasanter のマニュアル:
 - API キーに対象サイトの管理権限があること
 - `base-url` は `https://example.com` または `https://pleasanter.net/fs` のように、Pleasanter のルートまでを指定すること
 
-## インストール
+## 利用者向け
 
 ```bash
-npm install @yamada28go/pleasanter-site-dev-cli
+npm install --save-dev @yamada28go/pleasanter-site-dev-cli
 ```
 
-ローカル開発時:
+`package.json` の script やローカル作業用 CLI として使う前提なら、通常は `dependencies` ではなく `devDependencies` に入れる方が自然です。
+
+単発で試すだけなら `npx` でも実行できます。
 
 ```bash
-npm install
-npm run build
-node dist/cli.js help
+npx @yamada28go/pleasanter-site-dev-cli help
 ```
+
+このリポジトリ自体の開発手順は [DEVELOPING.md](./DEVELOPING.md) を参照してください。
 
 ## コマンド
 

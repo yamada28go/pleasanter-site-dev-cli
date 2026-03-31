@@ -21,6 +21,7 @@ export interface ResolvedCliSettingsConfig {
   apiVersion?: number;
   logLevel?: string;
   backupDir?: string;
+  backupRetention?: number;
   out?: string;
   config?: string;
   skipBackup?: boolean;
@@ -143,6 +144,13 @@ export async function loadCliSettingsConfig(
       throw new Error("backupDir must be a string.");
     }
     resolved.backupDir = path.resolve(configDirectory, parsed.backupDir);
+  }
+
+  if (parsed.backupRetention !== undefined) {
+    if (typeof parsed.backupRetention !== "number") {
+      throw new Error("backupRetention must be a number.");
+    }
+    resolved.backupRetention = parsed.backupRetention;
   }
 
   if (parsed.out !== undefined) {

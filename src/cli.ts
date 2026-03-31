@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync, realpathSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -23,6 +23,7 @@ interface CliMetadata {
 }
 
 const cliMetadata = loadCliMetadata();
+const DEFAULT_AUTO_BACKUP_RETENTION = 10;
 
 export interface ParsedArgs {
   _: string[];
@@ -107,8 +108,10 @@ async function runPush(parsed: ParsedArgs, logger: Logger): Promise<void> {
   const skipBackup = getBooleanFlag(parsed, "skip-backup");
   let backupPath: string | undefined;
   if (!skipBackup) {
+    const backupRetention = resolveAutoBackupRetention(parsed);
     logger.info("Creating backup before update", {
       siteId: options.siteId,
+      backupRetention,
     });
     backupPath = await writeBackup({
       baseUrl: options.baseUrl,
@@ -116,6 +119,11 @@ async function runPush(parsed: ParsedArgs, logger: Logger): Promise<void> {
       site,
       outPath: undefined,
       backupDir: getOptionalStringSetting(parsed, "backup-dir"),
+    });
+    await pruneAutomaticBackups({
+      backupPath,
+      siteId: options.siteId,
+      maxBackups: backupRetention,
     });
   } else {
     logger.warn("Skipping backup before update", {
@@ -224,6 +232,30 @@ export async function writeBackup(args: {
   return outputPath;
 }
 
+export async function pruneAutomaticBackups(args: {
+  backupPath: string;
+  siteId: number;
+  maxBackups: number;
+}): Promise<void> {
+  const backupDir = path.dirname(args.backupPath);
+  const prefix = `site-${args.siteId}-`;
+  const entries = await readdir(backupDir, { withFileTypes: true });
+  const matchingFiles = entries
+    .filter(
+      (entry) =>
+        entry.isFile() &&
+        entry.name.startsWith(prefix) &&
+        entry.name.endsWith(".json"),
+    )
+    .map((entry) => entry.name)
+    .sort((left, right) => right.localeCompare(left));
+
+  const filesToDelete = matchingFiles.slice(args.maxBackups);
+  await Promise.all(
+    filesToDelete.map((fileName) => unlink(path.join(backupDir, fileName))),
+  );
+}
+
 export function parseArgs(argv: string[]): ParsedArgs {
   const positional: string[] = [];
   const flags = new Map<string, string | boolean>();
@@ -303,7 +335,7 @@ Repository:
 
 Usage:
   pleasanter-site-dev backup [--settings <file>] --base-url <url> --site-id <id> [--api-key <key> | --api-key-file <file>] [--out <file>] [--backup-dir <dir>]
-  pleasanter-site-dev push [--settings <file>] --base-url <url> --site-id <id> [--api-key <key> | --api-key-file <file>] --config <file> [--backup-dir <dir>] [--skip-backup] [--dry-run]
+  pleasanter-site-dev push [--settings <file>] --base-url <url> --site-id <id> [--api-key <key> | --api-key-file <file>] --config <file> [--backup-dir <dir>] [--backup-retention <count>] [--skip-backup] [--dry-run]
   pleasanter-site-dev ... [--log-level <debug|info|warn|error|silent>] [--verbose]
 
 Environment variables:
@@ -312,6 +344,7 @@ Environment variables:
   PLEASANTER_API_KEY
   PLEASANTER_API_KEY_FILE
   PLEASANTER_API_VERSION
+  PLEASANTER_BACKUP_RETENTION
   PLEASANTER_LOG_LEVEL
   PLEASANTER_SETTINGS_FILE
 
@@ -453,6 +486,13 @@ function applySettingsDefaults(
   );
   setStringDefault(flags, "log-level", settings.logLevel);
   setStringDefault(flags, "backup-dir", settings.backupDir);
+  setStringDefault(
+    flags,
+    "backup-retention",
+    settings.backupRetention !== undefined
+      ? String(settings.backupRetention)
+      : undefined,
+  );
   setStringDefault(flags, "out", settings.out);
   setStringDefault(flags, "config", settings.config);
   setBooleanDefault(flags, "skip-backup", settings.skipBackup);
@@ -498,6 +538,8 @@ function getSettingEnvFallback(name: string): string | undefined {
       return process.env.PLEASANTER_API_KEY_FILE;
     case "api-version":
       return process.env.PLEASANTER_API_VERSION;
+    case "backup-retention":
+      return process.env.PLEASANTER_BACKUP_RETENTION;
     case "log-level":
       return process.env.PLEASANTER_LOG_LEVEL;
     default:
@@ -515,6 +557,20 @@ function requireSetting(parsed: ParsedArgs, name: string): string {
 
 function toCamelCase(value: string): string {
   return value.replace(/-([a-z])/g, (_, next: string) => next.toUpperCase());
+}
+
+function resolveAutoBackupRetention(parsed: ParsedArgs): number {
+  const rawValue = getOptionalStringSetting(parsed, "backup-retention");
+  if (!rawValue) {
+    return DEFAULT_AUTO_BACKUP_RETENTION;
+  }
+
+  const retention = Number(rawValue);
+  if (!Number.isInteger(retention) || retention <= 0) {
+    throw new Error(`Invalid backup retention: ${rawValue}`);
+  }
+
+  return retention;
 }
 
 if (isEntrypoint) {

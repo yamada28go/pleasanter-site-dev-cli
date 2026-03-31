@@ -1,5 +1,12 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import {
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -8,6 +15,7 @@ import test from "node:test";
 import {
   isCliEntrypoint,
   parseArgs,
+  pruneAutomaticBackups,
   readCommonOptions,
   renderHelp,
   resolveParsedArgs,
@@ -129,6 +137,7 @@ test("resolveParsedArgs merges settings file defaults and preserves explicit fla
         siteId: 456,
         apiKeyFile: "./api-key.txt",
         config: "./site-settings.config.json",
+        backupRetention: 7,
         dryRun: true,
       }),
       "utf8",
@@ -155,6 +164,7 @@ test("resolveParsedArgs merges settings file defaults and preserves explicit fla
       parsed.flags.get("config"),
       path.join(tempDir, "site-settings.config.json"),
     );
+    assert.equal(parsed.flags.get("backup-retention"), "7");
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
@@ -256,6 +266,60 @@ test("writeBackup writes site data and extracted scripts to the requested path",
   }
 });
 
+test("pruneAutomaticBackups keeps the newest 10 backups by default pattern", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "pleasanter-prune-"));
+  const siteId = 123;
+
+  try {
+    for (let index = 1; index <= 12; index += 1) {
+      const suffix = String(index).padStart(2, "0");
+      await writeFile(
+        path.join(
+          tempDir,
+          `site-${siteId}-2026-04-${suffix}T00-00-00-000Z.json`,
+        ),
+        "{}\n",
+        "utf8",
+      );
+    }
+    await writeFile(
+      path.join(tempDir, "site-999-2026-04-01T00-00-00-000Z.json"),
+      "{}\n",
+      "utf8",
+    );
+
+    await pruneAutomaticBackups({
+      backupPath: path.join(
+        tempDir,
+        `site-${siteId}-2026-04-12T00-00-00-000Z.json`,
+      ),
+      siteId,
+      maxBackups: 10,
+    });
+
+    const remainingFiles = (await readFileNames(tempDir)).sort();
+    assert.equal(
+      remainingFiles.filter((name) => name.startsWith(`site-${siteId}-`))
+        .length,
+      10,
+    );
+    assert.equal(
+      remainingFiles.includes(`site-${siteId}-2026-04-01T00-00-00-000Z.json`),
+      false,
+    );
+    assert.equal(
+      remainingFiles.includes(`site-${siteId}-2026-04-02T00-00-00-000Z.json`),
+      false,
+    );
+    assert.equal(
+      remainingFiles.includes("site-999-2026-04-01T00-00-00-000Z.json"),
+      true,
+    );
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
 function restoreEnv(previousEnv: Record<string, string | undefined>): void {
   for (const [key, value] of Object.entries(previousEnv)) {
     if (value === undefined) {
@@ -264,4 +328,8 @@ function restoreEnv(previousEnv: Record<string, string | undefined>): void {
       process.env[key] = value;
     }
   }
+}
+
+async function readFileNames(dirPath: string): Promise<string[]> {
+  return readdir(dirPath);
 }

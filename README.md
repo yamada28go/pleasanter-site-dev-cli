@@ -68,7 +68,8 @@ pleasanter-site-dev push \
   --base-url https://example.com \
   --site-id 12345 \
   --api-key-file ~/.config/pleasanter/api-key.txt \
-  --config ./examples/site-settings.config.json
+  --config ./examples/site-settings.config.json \
+  --backup-retention 10
 ```
 
 共通オプションを settings ファイルに寄せる場合:
@@ -134,7 +135,8 @@ CLI の共通オプションは `--settings` または `PLEASANTER_SETTINGS_FILE
   "siteId": 12345,
   "apiKeyFile": "./secrets/api-key.txt",
   "config": "./site-settings.config.json",
-  "backupDir": "./backups"
+  "backupDir": "./backups",
+  "backupRetention": 10
 }
 ```
 
@@ -147,12 +149,14 @@ CLI の共通オプションは `--settings` または `PLEASANTER_SETTINGS_FILE
 - `apiVersion`
 - `logLevel`
 - `backupDir`
+- `backupRetention`
 - `out`
 - `config`
 - `skipBackup`
 - `dryRun`
 
 `apiKeyFile`、`config`、`backupDir`、`out` の相対パスは settings ファイル基準で解決されます。
+`backupRetention` は `push` 実行時の自動バックアップ保持数です。未指定なら 10 世代を保持します。
 
 ## 更新設定ファイル
 
@@ -216,6 +220,7 @@ export PLEASANTER_SITE_ID=12345
 export PLEASANTER_API_KEY=xxxxx
 export PLEASANTER_API_KEY_FILE=~/.config/pleasanter/api-key.txt
 export PLEASANTER_API_VERSION=1.1
+export PLEASANTER_BACKUP_RETENTION=10
 export PLEASANTER_SETTINGS_FILE=./examples/cli-settings.json
 ```
 

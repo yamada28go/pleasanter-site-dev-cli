@@ -60,6 +60,7 @@ export interface CliSettingsConfig {
   apiVersion?: number;
   logLevel?: string;
   backupDir?: string;
+  backupRetention?: number;
   out?: string;
   config?: string;
   skipBackup?: boolean;

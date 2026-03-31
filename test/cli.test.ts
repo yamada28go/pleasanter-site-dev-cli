@@ -168,9 +168,9 @@ test("renderHelp includes version and repository metadata", () => {
     repositoryUrl: "https://github.com/example/repo",
   });
 
-  assert.match(help, /Description:\n  Example CLI/);
-  assert.match(help, /Version:\n  9\.9\.9/);
-  assert.match(help, /Repository:\n  https:\/\/github\.com\/example\/repo/);
+  assert.match(help, /Description:\n {2}Example CLI/);
+  assert.match(help, /Version:\n {2}9\.9\.9/);
+  assert.match(help, /Repository:\n {2}https:\/\/github\.com\/example\/repo/);
 });
 
 test("writeBackup writes site data and extracted scripts to the requested path", async () => {

@@ -1,10 +1,16 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import test from "node:test";
 
-import { parseArgs, readCommonOptions, writeBackup } from "../src/cli.js";
+import {
+  isCliEntrypoint,
+  parseArgs,
+  readCommonOptions,
+  writeBackup,
+} from "../src/cli.js";
 
 test("parseArgs handles positional arguments, equals syntax, and boolean flags", () => {
   const parsed = parseArgs([
@@ -124,6 +130,33 @@ test("readCommonOptions rejects invalid site ids", async () => {
       ]),
     ),
     /Invalid site id: 0/,
+  );
+});
+
+test("isCliEntrypoint returns true for symlinked bin paths", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "pleasanter-bin-"));
+  const linkPath = path.join(tempDir, "pleasanter-site-dev");
+
+  try {
+    const modulePath = path.resolve("src/cli.ts");
+    await symlink(modulePath, linkPath);
+
+    assert.equal(
+      isCliEntrypoint(linkPath, pathToFileURL(modulePath).href),
+      true,
+    );
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("isCliEntrypoint returns false for a different module", () => {
+  assert.equal(
+    isCliEntrypoint(
+      path.resolve("src/config.ts"),
+      pathToFileURL(path.resolve("src/cli.ts")).href,
+    ),
+    false,
   );
 });
 

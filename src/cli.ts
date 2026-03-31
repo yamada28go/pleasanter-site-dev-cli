@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { realpathSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -10,6 +10,14 @@ import { createLogger, resolveLogLevel, type Logger } from "./logger.js";
 import type { BackupDocument, PleasanterSiteData } from "./types.js";
 
 type CommandName = "backup" | "push" | "help";
+
+interface CliMetadata {
+  version: string;
+  description?: string;
+  repositoryUrl?: string;
+}
+
+const cliMetadata = loadCliMetadata();
 
 export interface ParsedArgs {
   _: string[];
@@ -275,8 +283,17 @@ export function getBooleanFlag(parsed: ParsedArgs, name: string): boolean {
   return false;
 }
 
-export function printHelp(): void {
-  process.stdout.write(`pleasanter-site-dev
+export function renderHelp(metadata: CliMetadata = cliMetadata): string {
+  return `pleasanter-site-dev
+
+Description:
+  ${metadata.description ?? "N/A"}
+
+Version:
+  ${metadata.version}
+
+Repository:
+  ${metadata.repositoryUrl ?? "N/A"}
 
 Usage:
   pleasanter-site-dev backup --base-url <url> --site-id <id> [--api-key <key> | --api-key-file <file>] [--out <file>] [--backup-dir <dir>]
@@ -293,7 +310,11 @@ Environment variables:
 
 Config example:
   See examples/site-settings.config.json
-`);
+`;
+}
+
+export function printHelp(): void {
+  process.stdout.write(renderHelp());
 }
 
 export function createCliLogger(parsed: ParsedArgs): Logger {
@@ -325,6 +346,67 @@ export function isCliEntrypoint(
 }
 
 const isEntrypoint = isCliEntrypoint(process.argv[1], import.meta.url);
+
+function loadCliMetadata(): CliMetadata {
+  const parsed = readPackageJson();
+
+  const repositoryUrl =
+    typeof parsed.homepage === "string"
+      ? parsed.homepage.replace(/#readme$/, "")
+      : normalizeRepositoryUrl(parsed.repository);
+
+  return {
+    description:
+      typeof parsed.description === "string" ? parsed.description : undefined,
+    version: typeof parsed.version === "string" ? parsed.version : "unknown",
+    repositoryUrl,
+  };
+}
+
+function readPackageJson(): {
+  description?: unknown;
+  version?: unknown;
+  repository?: { url?: unknown } | unknown;
+  homepage?: unknown;
+} {
+  const candidates = [
+    new URL("../package.json", import.meta.url),
+    new URL("../../package.json", import.meta.url),
+  ];
+
+  for (const packageJsonUrl of candidates) {
+    try {
+      const raw = readFileSync(packageJsonUrl, "utf8");
+      return JSON.parse(raw) as {
+        description?: unknown;
+        version?: unknown;
+        repository?: { url?: unknown } | unknown;
+        homepage?: unknown;
+      };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+        throw error;
+      }
+    }
+  }
+
+  throw new Error("Unable to locate package.json for CLI metadata.");
+}
+
+function normalizeRepositoryUrl(
+  repository: { url?: unknown } | unknown,
+): string | undefined {
+  if (!repository || typeof repository !== "object") {
+    return undefined;
+  }
+
+  const url = (repository as Record<string, unknown>).url;
+  if (typeof url !== "string") {
+    return undefined;
+  }
+
+  return url.replace(/^git\+/, "").replace(/\.git$/, "");
+}
 
 if (isEntrypoint) {
   // Keep the module importable in tests while still behaving as a CLI entrypoint.

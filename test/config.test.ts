@@ -104,6 +104,7 @@ test("loadCliSettingsConfig resolves relative paths from the settings file", asy
       JSON.stringify({
         baseUrl: "https://example.com",
         siteId: 123,
+        siteIds: [123, 456],
         apiKeyFile: "./secrets/api-key.txt",
         config: "./site-settings.config.json",
         backupDir: "./backups",
@@ -122,6 +123,7 @@ test("loadCliSettingsConfig resolves relative paths from the settings file", asy
     assert.deepEqual(result, {
       baseUrl: "https://example.com",
       siteId: 123,
+      siteIds: [123, 456],
       apiKeyFile: path.join(tempDir, "secrets/api-key.txt"),
       config: path.join(tempDir, "site-settings.config.json"),
       backupDir: path.join(tempDir, "backups"),
@@ -142,14 +144,14 @@ test("loadCliSettingsConfig rejects invalid field types", async () => {
     await writeFile(
       path.join(tempDir, "cli-settings.json"),
       JSON.stringify({
-        siteId: "123",
+        siteIds: "123",
       }),
       "utf8",
     );
 
     await assert.rejects(
       loadCliSettingsConfig(path.join(tempDir, "cli-settings.json")),
-      /siteId must be a number\./,
+      /siteIds must be an array of numbers\./,
     );
   } finally {
     await rm(tempDir, { recursive: true, force: true });

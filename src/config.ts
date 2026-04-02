@@ -16,6 +16,7 @@ export interface ResolvedSiteUpdateConfig {
 export interface ResolvedCliSettingsConfig {
   baseUrl?: string;
   siteId?: number;
+  siteIds?: number[];
   apiKey?: string;
   apiKeyFile?: string;
   apiVersion?: number;
@@ -109,6 +110,16 @@ export async function loadCliSettingsConfig(
       throw new Error("siteId must be a number.");
     }
     resolved.siteId = parsed.siteId;
+  }
+
+  if (parsed.siteIds !== undefined) {
+    if (
+      !Array.isArray(parsed.siteIds) ||
+      parsed.siteIds.some((siteId) => typeof siteId !== "number")
+    ) {
+      throw new Error("siteIds must be an array of numbers.");
+    }
+    resolved.siteIds = parsed.siteIds;
   }
 
   if (parsed.apiKey !== undefined) {

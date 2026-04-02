@@ -12,9 +12,13 @@ import {
   type ResolvedCliSettingsConfig,
 } from "./config.js";
 import { createLogger, resolveLogLevel, type Logger } from "./logger.js";
-import type { BackupDocument, PleasanterSiteData } from "./types.js";
+import type {
+  BackupDocument,
+  CollectedSitesDocument,
+  PleasanterSiteData,
+} from "./types.js";
 
-type CommandName = "backup" | "push" | "help";
+type CommandName = "backup" | "collect" | "push" | "help";
 
 interface CliMetadata {
   version: string;
@@ -43,6 +47,9 @@ export async function main(): Promise<void> {
   switch (command) {
     case "backup":
       await runBackup(parsed, logger.child("backup"));
+      return;
+    case "collect":
+      await runCollect(parsed, logger.child("collect"));
       return;
     case "push":
       await runPush(parsed, logger.child("push"));
@@ -74,6 +81,35 @@ async function runBackup(parsed: ParsedArgs, logger: Logger): Promise<void> {
 
   logger.info("Backup created", {
     backupPath,
+  });
+}
+
+async function runCollect(parsed: ParsedArgs, logger: Logger): Promise<void> {
+  const options = await readCollectOptions(parsed);
+  logger.info("Starting collect command", {
+    siteIds: options.siteIds,
+    baseUrl: options.baseUrl,
+  });
+
+  const sites: PleasanterSiteData[] = [];
+  for (const siteId of options.siteIds) {
+    const client = new PleasanterClient({
+      ...options,
+      siteId,
+      logger: logger.child(`api:${siteId}`),
+    });
+    const site = await client.getSite();
+    sites.push(normalizeCollectedSite(site));
+  }
+
+  const outputPath = await writeCollectedSites({
+    outPath: requireSetting(parsed, "output-file"),
+    sites,
+  });
+
+  logger.info("Collected sites written", {
+    outputPath,
+    siteCount: sites.length,
   });
 }
 
@@ -144,9 +180,41 @@ async function runPush(parsed: ParsedArgs, logger: Logger): Promise<void> {
 }
 
 export async function readCommonOptions(parsed: ParsedArgs) {
+  const options = await readApiOptions(parsed);
+  const siteIdRaw = getOptionalStringSetting(parsed, "site-id");
+  if (!siteIdRaw) {
+    throw new Error(
+      "--site-id, settings.siteId, or PLEASANTER_SITE_ID is required.",
+    );
+  }
+
+  const siteId = Number(siteIdRaw);
+  if (!Number.isInteger(siteId) || siteId <= 0) {
+    throw new Error(`Invalid site id: ${siteIdRaw}`);
+  }
+
+  return {
+    ...options,
+    siteId,
+  };
+}
+
+export async function readCollectOptions(parsed: ParsedArgs) {
+  const options = await readApiOptions(parsed);
+  const siteIds = resolveSiteIds(parsed);
+  if (!siteIds.length) {
+    throw new Error("--site-ids or settings.siteIds is required.");
+  }
+
+  return {
+    ...options,
+    siteIds,
+  };
+}
+
+async function readApiOptions(parsed: ParsedArgs) {
   const baseUrl = getOptionalStringSetting(parsed, "base-url");
   const apiKey = await resolveApiKey(parsed);
-  const siteIdRaw = getOptionalStringSetting(parsed, "site-id");
   const apiVersionRaw = getOptionalStringSetting(parsed, "api-version");
 
   if (!baseUrl) {
@@ -159,16 +227,6 @@ export async function readCommonOptions(parsed: ParsedArgs) {
       "--api-key, --api-key-file, settings.apiKey, settings.apiKeyFile, PLEASANTER_API_KEY, or PLEASANTER_API_KEY_FILE is required.",
     );
   }
-  if (!siteIdRaw) {
-    throw new Error(
-      "--site-id, settings.siteId, or PLEASANTER_SITE_ID is required.",
-    );
-  }
-
-  const siteId = Number(siteIdRaw);
-  if (!Number.isInteger(siteId) || siteId <= 0) {
-    throw new Error(`Invalid site id: ${siteIdRaw}`);
-  }
 
   const apiVersion = apiVersionRaw ? Number(apiVersionRaw) : 1.1;
   if (!Number.isFinite(apiVersion)) {
@@ -178,7 +236,6 @@ export async function readCommonOptions(parsed: ParsedArgs) {
   return {
     baseUrl,
     apiKey,
-    siteId,
     apiVersion,
   };
 }
@@ -229,6 +286,21 @@ export async function writeBackup(args: {
   };
 
   await writeFile(outputPath, `${JSON.stringify(backup, null, 2)}\n`, "utf8");
+  return outputPath;
+}
+
+export async function writeCollectedSites(args: {
+  outPath: string;
+  sites: PleasanterSiteData[];
+}): Promise<string> {
+  const outputPath = path.resolve(args.outPath);
+  await mkdir(path.dirname(outputPath), { recursive: true });
+
+  const document: CollectedSitesDocument = {
+    Sites: args.sites,
+  };
+
+  await writeFile(outputPath, `${JSON.stringify(document, null, 2)}\n`, "utf8");
   return outputPath;
 }
 
@@ -335,6 +407,7 @@ Repository:
 
 Usage:
   pleasanter-site-dev backup [--settings <file>] --base-url <url> --site-id <id> [--api-key <key> | --api-key-file <file>] [--output-file <file>] [--backup-dir <dir>]
+  pleasanter-site-dev collect [--settings <file>] --base-url <url> --site-ids <id,id,...> [--api-key <key> | --api-key-file <file>] --output-file <file>
   pleasanter-site-dev push [--settings <file>] --base-url <url> --site-id <id> [--api-key <key> | --api-key-file <file>] --config <file> [--backup-dir <dir>] [--backup-retention <count>] [--skip-backup] [--dry-run]
   pleasanter-site-dev ... [--log-level <debug|info|warn|error|silent>] [--verbose]
 
@@ -477,6 +550,11 @@ function applySettingsDefaults(
     "site-id",
     settings.siteId !== undefined ? String(settings.siteId) : undefined,
   );
+  setStringDefault(
+    flags,
+    "site-ids",
+    settings.siteIds?.length ? settings.siteIds.join(",") : undefined,
+  );
   setStringDefault(flags, "api-key", settings.apiKey);
   setStringDefault(flags, "api-key-file", settings.apiKeyFile);
   setStringDefault(
@@ -571,6 +649,50 @@ function resolveAutoBackupRetention(parsed: ParsedArgs): number {
   }
 
   return retention;
+}
+
+function resolveSiteIds(parsed: ParsedArgs): number[] {
+  const rawValue = getOptionalStringSetting(parsed, "site-ids");
+  if (!rawValue) {
+    return [];
+  }
+
+  return rawValue
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0)
+    .map((value) => {
+      const siteId = Number(value);
+      if (!Number.isInteger(siteId) || siteId <= 0) {
+        throw new Error(`Invalid site id: ${value}`);
+      }
+      return siteId;
+    });
+}
+
+export function normalizeCollectedSite(
+  site: PleasanterSiteData,
+): PleasanterSiteData {
+  return normalizeCollectedValue(site) as PleasanterSiteData;
+}
+
+function normalizeCollectedValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => normalizeCollectedValue(entry));
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entryValue]) => {
+        if (key === "Comments" && entryValue === "[]") {
+          return [key, []];
+        }
+        return [key, normalizeCollectedValue(entryValue)];
+      }),
+    );
+  }
+
+  return value;
 }
 
 if (isEntrypoint) {

@@ -1,6 +1,6 @@
 # pleasanter-site-dev-cli
 
-Pleasanter の `getsite` / `updatesitesettings` API を使って、サイト設定のバックアップと `Scripts` / `ServerScripts` 更新を行う CLI です。
+Pleasanter の `getsite` / `updatesitesettings` API を使って、サイト設定のバックアップ、複数サイトの収集、`Scripts` / `ServerScripts` 更新を行う CLI です。
 
 対象 API:
 
@@ -102,6 +102,42 @@ pleasanter-site-dev push \
   --dry-run
 ```
 
+### 複数サイト収集
+
+グルーコード生成用の元データをまとめて取得したい場合は `collect` を使います。
+
+```bash
+pleasanter-site-dev collect \
+  --base-url https://example.com \
+  --site-ids 12345,23456,34567 \
+  --api-key-file ~/.config/pleasanter/api-key.txt \
+  --output-file ./backups/sites.json
+```
+
+出力ファイルは `{ "Sites": [...] }` 形式です。実際には `getsite` の取得結果がそのまま並びます。
+
+```json
+{
+  "Sites": [
+    {
+      "TenantId": 1,
+      "SiteId": 12345,
+      "Title": "記録テーブル",
+      "Comments": [],
+      "SiteSettings": {
+        "ReferenceType": "Results",
+        "Columns": [],
+        "Scripts": [],
+        "ServerScripts": []
+      }
+    }
+  ]
+}
+```
+
+補足
+Pleasanter の取得結果に `Comments: "[]"` が含まれる場合だけ、後段で読みやすいように `Comments: []` に補正して出力します。
+
 ## APIキーの渡し方
 
 `package.json` の script や CI から呼び出す場合は、`--api-key` で値を直接渡すよりも、環境変数または `--api-key-file` / `PLEASANTER_API_KEY_FILE` を使う方が安全です。
@@ -135,6 +171,7 @@ CLI の共通オプションは `--settings` または `PLEASANTER_SETTINGS_FILE
 {
   "baseUrl": "https://example.com",
   "siteId": 12345,
+  "siteIds": [12345, 23456, 34567],
   "apiKeyFile": "./secrets/api-key.txt",
   "config": "./site-settings.config.json",
   "backupDir": "./backups",
@@ -146,6 +183,7 @@ CLI の共通オプションは `--settings` または `PLEASANTER_SETTINGS_FILE
 
 - `baseUrl`
 - `siteId`
+- `siteIds`
 - `apiKey`
 - `apiKeyFile`
 - `apiVersion`

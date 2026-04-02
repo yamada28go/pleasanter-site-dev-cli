@@ -14,12 +14,15 @@ import test from "node:test";
 
 import {
   isCliEntrypoint,
+  normalizeCollectedSite,
   parseArgs,
   pruneAutomaticBackups,
+  readCollectOptions,
   readCommonOptions,
   renderHelp,
   resolveParsedArgs,
   writeBackup,
+  writeCollectedSites,
 } from "../src/cli.js";
 
 test("parseArgs handles positional arguments, equals syntax, and boolean flags", () => {
@@ -192,6 +195,27 @@ test("readCommonOptions rejects invalid site ids", async () => {
   );
 });
 
+test("readCollectOptions reads multiple site ids", async () => {
+  const options = await readCollectOptions(
+    parseArgs([
+      "collect",
+      "--base-url",
+      "https://example.com",
+      "--api-key",
+      "secret",
+      "--site-ids",
+      "11,22,33",
+    ]),
+  );
+
+  assert.deepEqual(options, {
+    baseUrl: "https://example.com",
+    apiKey: "secret",
+    apiVersion: 1.1,
+    siteIds: [11, 22, 33],
+  });
+});
+
 test("isCliEntrypoint returns true for symlinked bin paths", async () => {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "pleasanter-bin-"));
   const linkPath = path.join(tempDir, "pleasanter-site-dev");
@@ -269,6 +293,63 @@ test("writeBackup writes site data and extracted scripts to the requested path",
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
+});
+
+test("writeCollectedSites writes a Sites wrapper document", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "pleasanter-collect-"));
+  const outputPath = path.join(tempDir, "sites.json");
+
+  try {
+    const writtenPath = await writeCollectedSites({
+      outPath: outputPath,
+      sites: [
+        {
+          TenantId: 1,
+          SiteId: 123,
+          Title: "Example",
+        },
+      ],
+    });
+
+    assert.equal(writtenPath, outputPath);
+    assert.deepEqual(JSON.parse(await readFile(outputPath, "utf8")), {
+      Sites: [
+        {
+          TenantId: 1,
+          SiteId: 123,
+          Title: "Example",
+        },
+      ],
+    });
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('normalizeCollectedSite replaces only Comments: "[]" with Comments: []', () => {
+  const normalized = normalizeCollectedSite({
+    TenantId: 1,
+    SiteId: 123,
+    Title: "Example",
+    Comments: "[]",
+    Nested: {
+      Comments: "[]",
+      Title: "keep",
+    },
+    LeaveAsString: "[]",
+  });
+
+  assert.deepEqual(normalized, {
+    TenantId: 1,
+    SiteId: 123,
+    Title: "Example",
+    Comments: [],
+    Nested: {
+      Comments: [],
+      Title: "keep",
+    },
+    LeaveAsString: "[]",
+  });
 });
 
 test("pruneAutomaticBackups keeps the newest 10 backups by default pattern", async () => {

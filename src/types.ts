@@ -55,6 +55,7 @@ export interface SiteUpdateConfig {
 export interface CliSettingsConfig {
   baseUrl?: string;
   siteId?: number;
+  siteIds?: number[];
   apiKey?: string;
   apiKeyFile?: string;
   apiVersion?: number;
@@ -106,4 +107,8 @@ export interface BackupDocument {
     scripts: JsonObject[];
     serverScripts: JsonObject[];
   };
+}
+
+export interface CollectedSitesDocument {
+  Sites: PleasanterSiteData[];
 }
